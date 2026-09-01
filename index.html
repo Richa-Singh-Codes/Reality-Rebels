@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TIME-SHADOW XR</title>
+    <!-- A-Frame v1.5.0 -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- Environment Component -->
+    <script
+        src="https://unpkg.com/aframe-environment-component@1.3.3/dist/aframe-environment-component.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #00ffff;
+            --secondary: #0088ff;
+            --bg-dark: rgba(10, 15, 25, 0.85);
+            --bg-panel: rgba(15, 25, 40, 0.85);
+            --text-main: #e0f7fa;
+            --danger: #ff4444;
+            --success: #00ff88;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            /* Let clicks pass through to webgl by default */
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 24px;
+            color: var(--text-main);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+
+        /* Screens */
+        #intro-screen,
+        #main-ui {
+            position: absolute;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Intro Screen */
+        #intro-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px var(--primary);
+            color: #fff;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            color: var(--primary);
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+        }
+
+        button {
+            background: rgba(0, 136, 255, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 12px 32px;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 25px var(--primary);
+        }
+
+        /* Main UI */
+        #main-ui {
+            width: 100%;
+            height: 100%;
+            display: none;
+            /* hidden initially */
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* Header / Mode Selector */
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .mode-btn {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+        }
+
+        .mode-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(0, 255, 255, 0.1);
+            text-shadow: 0 0 10px var(--primary);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+
+        /* Bottom panels */
+        .bottom-panel-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            min-height: 200px;
+        }
+
+        .panel-content {
+            display: none;
+            width: 600px;
+            max-width: 90vw;
+        }
+
+        .panel-content.active {
+            display: block;
+        }
+
+        /* Timeline (Past) */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .timeline-years {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .timeline-years span {
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.3s;
+        }
+
+        .timeline-years span.active-year {
+            color: var(--primary);
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        /* Present Layers */
+        .layer-toggles {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .layer-toggle {
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .layer-toggle:hover {
+            border-color: var(--primary);
+        }
+
+        .layer-toggle input {
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        /* Future Controls */
+        .future-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .slider-group label {
+            flex: 1;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .slider-group input {
+            flex: 2;
+        }
+
+        .slider-val {
+            width: 40px;
+            text-align: right;
+            font-size: 0.9rem;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .btn-run-sim {
+            margin-top: 10px;
+            width: 100%;
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--success);
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        .btn-run-sim:hover {
+            background: var(--success);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+            color: #000;
+        }
+
+        /* Scenario Results */
+        #scenario-results {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 450px;
+            z-index: 20;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .metric {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid var(--primary);
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #fff;
+        }
+
+        .btn-enter-future {
+            width: 100%;
+            background: var(--primary);
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* AI Indicator */
+        .ai-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.8rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .ai-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(0, 255, 255, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 255, 255, 0);
+            }
+        }
+
+        .disclaimer {
+            font-size: 0.7rem;
+            color: #888;
+            text-align: center;
+            margin-top: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #vr-entry-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 30;
+        }
+
+        /* Instructions for VR */
+        .vr-instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 0.8rem;
+            color: #ccc;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 2D DOM UI -->
+    <div id="ui-layer">
+
+        <!-- INTRO SCREEN -->
+        <div id="intro-screen" class="glass-panel interactive">
+            <h1>TIME-SHADOW XR</h1>
+            <h2>See What Was. See What Is. See What Could Be.</h2>
+            <button onclick="app.startExperience()">Enter Experience</button>
+        </div>
+
+        <!-- MAIN UI -->
+        <div id="main-ui">
+            <div class="ai-indicator">
+                <div class="ai-dot"></div>
+                <span>AI SCENARIO ENGINE ACTIVE</span>
+            </div>
+
+            <div class="mode-selector interactive">
+                <button class="mode-btn active" id="btn-past" onclick="app.setMode('PAST')">PAST</button>
+                <button class="mode-btn" id="btn-present" onclick="app.setMode('PRESENT')">PRESENT</button>
+                <button class="mode-btn" id="btn-future" onclick="app.setMode('FUTURE')">FUTURE</button>
+            </div>
+
+            <div class="bottom-panel-container interactive">
+                <!-- PAST PANEL -->
+                <div id="panel-past" class="panel-content glass-panel active">
+                    <h3 style="margin-top:0; color:var(--primary); text-align:center; letter-spacing:1px;">TEMPORAL
+                        EXPLORATION</h3>
+                    <div class="timeline">
+                        <input type="range" id="year-slider" min="0" max="4" value="4" step="1"
+                            oninput="app.changeYear(this.value)">
+                        <div class="timeline-years">
+                            <span id="year-1900">1900</span>
+                            <span id="year-1950">1950</span>
+                            <span id="year-1980">1980</span>
+                            <span id="year-2000">2000</span>
+                            <span id="year-2026" class="active-year">2026</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PRESENT PANEL (Added Data Layers) -->
+                <div id="panel-present" class="panel-content glass-panel">
+                    <h3 style="margin-top:0; color:var(--primary); text-align:center; letter-spacing:1px;">ENVIRONMENTAL
+                        LAYERS</h3>
+                    <div class="layer-toggles">
+                        <label class="layer-toggle"><input type="checkbox" id="cb-temp" checked
+                                onchange="app.toggleLayer('temp', this.checked)"> TEMPERATURE</label>
+                        <label class="layer-toggle"><input type="checkbox" id="cb-crowd" checked
+                                onchange="app.toggleLayer('crowd', this.checked)"> CROWD</label>
+                        <label class="layer-toggle"><input type="checkbox" id="cb-wifi" checked
+                                onchange="app.toggleLayer('wifi', this.checked)"> WI-FI</label>
+                        <label class="layer-toggle"><input type="checkbox" id="cb-aqi"
+                                onchange="app.toggleLayer('aqi', this.checked)"> AIR QUALITY</label>
+                        <label class="layer-toggle"><input type="checkbox" id="cb-noise"
+                                onchange="app.toggleLayer('noise', this.checked)"> NOISE</label>
+                        <label class="layer-toggle"><input type="checkbox" id="cb-traffic"
+                                onchange="app.toggleLayer('traffic', this.checked)"> TRAFFIC</label>
+                        <label class="layer-toggle"><input type="checkbox" id="cb-energy"
+                                onchange="app.toggleLayer('energy', this.checked)"> ENERGY</label>
+                    </div>
+                    <div class="disclaimer">DEMO ENVIRONMENTAL DATA - NOT REAL MEASUREMENTS</div>
+                </div>
+
+                <!-- FUTURE PANEL -->
+                <div id="panel-future" class="panel-content glass-panel">
+                    <h3 style="margin-top:0; color:var(--primary); text-align:center; letter-spacing:1px;">FUTURE
+                        SIMULATION PARAMETERS</h3>
+                    <div class="future-controls">
+                        <div class="slider-group">
+                            <label>GREENERY</label>
+                            <input type="range" id="sim-greenery" min="0" max="100" value="50"
+                                oninput="app.updateSimValue('greenery', this.value)">
+                            <div class="slider-val" id="val-greenery">50%</div>
+                        </div>
+                        <div class="slider-group">
+                            <label>CONSTRUCTION</label>
+                            <input type="range" id="sim-build" min="0" max="100" value="50"
+                                oninput="app.updateSimValue('build', this.value)">
+                            <div class="slider-val" id="val-build">50%</div>
+                        </div>
+                        <div class="slider-group">
+                            <label>PUBLIC TRANSPORT</label>
+                            <input type="range" id="sim-transit" min="0" max="100" value="50"
+                                oninput="app.updateSimValue('transit', this.value)">
+                            <div class="slider-val" id="val-transit">50%</div>
+                        </div>
+                        <div class="slider-group">
+                            <label>TRAFFIC / VEHICLES</label>
+                            <input type="range" id="sim-traffic" min="0" max="100" value="50"
+                                oninput="app.updateSimValue('traffic', this.value)">
+                            <div class="slider-val" id="val-traffic">50%</div>
+                        </div>
+                        <div class="slider-group">
+                            <label>RENEWABLE ENERGY</label>
+                            <input type="range" id="sim-energy" min="0" max="100" value="50"
+                                oninput="app.updateSimValue('energy', this.value)">
+                            <div class="slider-val" id="val-energy">50%</div>
+                        </div>
+                        <button class="btn-run-sim" onclick="app.runSimulation()">RUN FUTURE SIMULATION</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vr-instructions">
+                <strong>QUEST 3S CONTROLS</strong><br>
+                LEFT STICK: Move/Teleport<br>
+                RIGHT STICK: Rotate<br>
+                TRIGGER: Select
+            </div>
+        </div>
+
+        <!-- SCENARIO RESULTS SCREEN -->
+        <div id="scenario-results" class="glass-panel interactive">
+            <h2 style="margin-top:0; text-align:center; color:var(--success); letter-spacing:2px;">SIMULATION COMPLETE
+            </h2>
+            <div style="text-align:center; font-size:1.1rem; color:#fff; font-weight:bold; letter-spacing:1px;"
+                id="scenario-name">"BALANCED FUTURE"</div>
+
+            <div class="metrics-grid">
+                <div class="metric">
+                    <div class="metric-label">Temperature Change</div>
+                    <div class="metric-value" id="res-temp">-0.5°C</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Air Quality (AQI)</div>
+                    <div class="metric-value" id="res-aqi">Good (45)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">CO2 Emissions</div>
+                    <div class="metric-value" id="res-co2">-10%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Sustainability Score</div>
+                    <div class="metric-value" id="res-score" style="color:var(--success)">75/100</div>
+                </div>
+            </div>
+
+            <div class="disclaimer" style="margin-bottom:20px;">SIMULATED SCENARIO — NOT A PREDICTION</div>
+            <button class="btn-enter-future" onclick="app.enterVRFuture()">ENTER THIS FUTURE (VR/3D)</button>
+            <button style="width:100%; margin-top:10px; background:transparent; color:#888; border:1px solid #555;"
+                onclick="app.closeScenario()">CANCEL</button>
+        </div>
+
+        <!-- VR ENTRY MESSAGE -->
+        <div id="vr-entry-message" class="glass-panel interactive">
+            <h2 style="color: #fff">WELCOME TO THE FUTURE</h2>
+            <p>You are now exploring the generated future simulation.</p>
+            <p style="color:#aaa; font-size:0.9rem; margin-bottom: 25px;">Use the 'VR' button in bottom right to enter
+                immersive mode if on Quest 3S.</p>
+            <button onclick="app.exitFuture()">RETURN TO PRESENT</button>
+        </div>
+
+    </div>
+
+    <!-- 3D WEBXR SCENE -->
+    <!-- Added robust shadows and physically based rendering parameters -->
+    <a-scene xr-mode-ui="enabled: true"
+        renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true;" background="color: #050505"
+        cursor="rayOrigin: mouse">
+
+        <a-assets>
+            <!-- REALISTIC ARCHITECTURAL MATERIALS -->
+            <a-mixin id="mat-concrete" material="color: #c9ccd0; roughness: 0.9; metalness: 0.1;"></a-mixin>
+            <a-mixin id="mat-concrete-dark" material="color: #8c9096; roughness: 0.95; metalness: 0.05;"></a-mixin>
+            <a-mixin id="mat-brick" material="color: #8a5745; roughness: 0.95; metalness: 0.0;"></a-mixin>
+            <a-mixin id="mat-future-concrete" material="color: #e5eaef; roughness: 0.6; metalness: 0.3;"></a-mixin>
+
+            <a-mixin id="mat-glass"
+                material="color: #1a2a3a; roughness: 0.05; metalness: 0.9; opacity: 0.8; transparent: true;"></a-mixin>
+            <a-mixin id="mat-frame" material="color: #333333; roughness: 0.7; metalness: 0.5;"></a-mixin>
+            <a-mixin id="mat-roof-trim" material="color: #4a4d52; roughness: 0.8; metalness: 0.2;"></a-mixin>
+            <a-mixin id="mat-ac" material="color: #d1d5db; roughness: 0.5; metalness: 0.6;"></a-mixin>
+
+            <a-mixin id="mat-wood" material="color: #422d1e; roughness: 0.9; metalness: 0.0;"></a-mixin>
+            <a-mixin id="mat-leaves" material="color: #2b5932; roughness: 0.8; metalness: 0.05;"></a-mixin>
+            <a-mixin id="mat-leaves-old" material="color: #44592b; roughness: 0.85; metalness: 0.05;"></a-mixin>
+
+            <a-mixin id="mat-asphalt" material="color: #333333; roughness: 0.95; metalness: 0.05;"></a-mixin>
+            <a-mixin id="mat-sidewalk" material="color: #999ba0; roughness: 0.9; metalness: 0.0;"></a-mixin>
+            <a-mixin id="mat-grass" material="color: #294d22; roughness: 1.0; metalness: 0.0;"></a-mixin>
+            <a-mixin id="mat-stripe" material="color: #ffffff; roughness: 0.9;"></a-mixin>
+
+            <a-mixin id="mat-car-old" material="color: #243447; roughness: 0.6; metalness: 0.4;"></a-mixin>
+            <a-mixin id="mat-car-mod" material="color: #e0e0e0; roughness: 0.3; metalness: 0.8;"></a-mixin>
+            <a-mixin id="mat-tire" material="color: #111111; roughness: 0.9; metalness: 0.1;"></a-mixin>
+
+            <!-- Holographic UI Material -->
+            <a-mixin id="marker-bg"
+                material="color: #031424; opacity: 0.8; transparent: true; border: 2px solid #0ff;"></a-mixin>
+            <a-mixin id="marker-temp"
+                material="color: #421111; opacity: 0.8; transparent: true; border: 2px solid #ff4444;"></a-mixin>
+            <a-mixin id="marker-crowd"
+                material="color: #114211; opacity: 0.8; transparent: true; border: 2px solid #00ff88;"></a-mixin>
+            <a-mixin id="marker-wifi"
+                material="color: #111142; opacity: 0.8; transparent: true; border: 2px solid #0088ff;"></a-mixin>
+        </a-assets>
+
+        <!-- Base Environment -->
+        <a-entity id="env-sky"
+            environment="preset: default; skyType: atmosphere; lighting: none; groundColor: #1a1a1a; grid: none;"></a-entity>
+
+        <!-- Realistic Lighting Setup -->
+        <a-entity id="ambient-light" light="type: ambient; color: #ffffff; intensity: 0.4;"></a-entity>
+        <a-entity id="dir-light"
+            light="type: directional; color: #fff5e6; intensity: 1.0; castShadow: true; shadowCameraLeft: -40; shadowCameraRight: 40; shadowCameraBottom: -40; shadowCameraTop: 40;"
+            position="-15 25 15"></a-entity>
+
+        <!-- CAMERA RIG (Human scale) -->
+        <a-entity id="rig" position="0 0 5">
+            <a-camera position="0 1.7 0" look-controls="pointerLockEnabled: false" wasd-controls="acceleration: 20">
+            </a-camera>
+
+            <!-- Quest Controllers -->
+            <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 30"
+                teleport-controls="cameraRig: #rig; teleportOrigin: a-camera; button: thumbstick"></a-entity>
+            <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30"
+                teleport-controls="cameraRig: #rig; teleportOrigin: a-camera; button: thumbstick"></a-entity>
+        </a-entity>
+
+        <!-- CITY ROOT CONTAINER -->
+        <a-entity id="city-root">
+
+            <!-- REALISTIC GROUND / INFRASTRUCTURE -->
+            <!-- We build a full 360 block intersection -->
+            <a-entity id="infrastructure">
+                <!-- Base Ground (Dirt/Grass) -->
+                <a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" mixin="mat-grass"></a-plane>
+
+                <!-- Main Road (Horizontal front) -->
+                <a-plane position="0 0.01 -5" rotation="-90 0 0" width="100" height="8" mixin="mat-asphalt"></a-plane>
+                <a-plane position="0 0.02 -5" rotation="-90 0 0" width="0.2" height="100" mixin="mat-stripe"></a-plane>
+
+                <!-- Back Road (Horizontal back) -->
+                <a-plane position="0 0.01 -25" rotation="-90 0 0" width="100" height="8" mixin="mat-asphalt"></a-plane>
+
+                <!-- Side Roads (Vertical left/right) -->
+                <a-plane position="-20 0.02 -15" rotation="-90 0 0" width="8" height="100"
+                    mixin="mat-asphalt"></a-plane>
+                <a-plane position="20 0.02 -15" rotation="-90 0 0" width="8" height="100" mixin="mat-asphalt"></a-plane>
+
+                <!-- Sidewalks around the main block (Main block is roughly x:-16 to 16, z:-9 to -21) -->
+                <!-- Front sidewalk -->
+                <a-plane position="0 0.05 -9" rotation="-90 0 0" width="32" height="4" mixin="mat-sidewalk"></a-plane>
+                <!-- Back sidewalk -->
+                <a-plane position="0 0.05 -21" rotation="-90 0 0" width="32" height="4" mixin="mat-sidewalk"></a-plane>
+                <!-- Left sidewalk -->
+                <a-plane position="-16 0.05 -15" rotation="-90 0 0" width="4" height="8" mixin="mat-sidewalk"></a-plane>
+                <!-- Right sidewalk -->
+                <a-plane position="16 0.05 -15" rotation="-90 0 0" width="4" height="8" mixin="mat-sidewalk"></a-plane>
+
+                <!-- Park across the main road -->
+                <a-plane position="0 0.05 5" rotation="-90 0 0" width="30" height="12" mixin="mat-grass"></a-plane>
+                <a-plane position="0 0.06 -0.5" rotation="-90 0 0" width="30" height="3" mixin="mat-sidewalk"></a-plane>
+            </a-entity>
+
+            <!-- ================= PAST GROUP ================= -->
+            <a-entity id="group-past" visible="false"></a-entity>
+
+            <!-- ================= PRESENT GROUP ================= -->
+            <a-entity id="group-present" visible="false">
+                <!-- Populated dynamically via JS -->
+            </a-entity>
+
+            <!-- ================= AR DATA LAYER (PRESENT) ================= -->
+            <!-- Grouped by independent layers -->
+            <a-entity id="group-ar-layer" visible="false">
+
+                <!-- TEMPERATURE LAYER -->
+                <a-entity id="layer-temp" visible="true">
+                    <a-entity class="clickable ar-marker" position="-5 4 -12" look-at="[camera]"
+                        animation="property: position; dir: alternate; dur: 2000; easing: easeInOutSine; loop: true; to: -5 4.2 -12">
+                        <a-plane width="2.8" height="1.2" mixin="marker-temp" class="clickable"></a-plane>
+                        <a-text value="🌡 TEMPERATURE\n32°C (Facade)\n+2.4°C above baseline" align="center"
+                            position="0 0 0.01" scale="0.6 0.6 0.6" color="#ffaa55"></a-text>
+                    </a-entity>
+                    <a-entity position="0 0 -15"
+                        animation="property: rotation; to: 0 360 0; dur: 10000; easing: linear; loop: true">
+                        <!-- Heat volume visualizer -->
+                        <a-cylinder position="0 10 0" radius="10" height="20"
+                            material="color: #ff2200; opacity: 0.1; transparent: true; side: double"></a-cylinder>
+                    </a-entity>
+                </a-entity>
+
+                <!-- CROWD LAYER -->
+                <a-entity id="layer-crowd" visible="true">
+                    <a-entity class="clickable ar-marker" position="0 3 2" look-at="[camera]"
+                        animation="property: position; dir: alternate; dur: 2300; easing: easeInOutSine; loop: true; to: 0 3.2 2">
+                        <a-plane width="3.2" height="1.2" mixin="marker-crowd" class="clickable"></a-plane>
+                        <a-text value="👥 CROWD DENSITY\nHIGH\n1,240 people/km²" align="center" position="0 0 0.01"
+                            scale="0.6 0.6 0.6" color="#00ff88"></a-text>
+                    </a-entity>
+                    <!-- Crowd density visualizer dots -->
+                    <a-entity position="0 0.5 4">
+                        <a-sphere position="-2 0 0" radius="0.2" color="#00ff88" opacity="0.6"></a-sphere>
+                        <a-sphere position="2 0 1" radius="0.2" color="#00ff88" opacity="0.6"></a-sphere>
+                        <a-sphere position="0 0 -1" radius="0.2" color="#00ff88" opacity="0.6"></a-sphere>
+                        <a-sphere position="-3 0 2" radius="0.2" color="#00ff88" opacity="0.6"></a-sphere>
+                        <a-sphere position="4 0 0" radius="0.2" color="#00ff88" opacity="0.6"></a-sphere>
+                    </a-entity>
+                </a-entity>
+
+                <!-- WI-FI LAYER -->
+                <a-entity id="layer-wifi" visible="true">
+                    <a-entity class="clickable ar-marker" position="8 5 -10" look-at="[camera]"
+                        animation="property: position; dir: alternate; dur: 1800; easing: easeInOutSine; loop: true; to: 8 5.2 -10">
+                        <a-plane width="2.5" height="1.2" mixin="marker-wifi" class="clickable"></a-plane>
+                        <a-text value="📶 CONNECTIVITY\nSTRONG\n92% SIGNAL" align="center" position="0 0 0.01"
+                            scale="0.6 0.6 0.6" color="#00aaff"></a-text>
+                        <a-ring color="#0088ff" radius-inner="1.3" radius-outer="1.35" opacity="0.5" position="0 0 -0.1"
+                            animation="property: scale; to: 2 2 2; dur: 1000; loop: true; easing: linear; opacity: 0"></a-ring>
+                    </a-entity>
+                </a-entity>
+
+                <!-- AQI LAYER -->
+                <a-entity id="layer-aqi" visible="false">
+                    <a-entity class="clickable ar-marker" position="-10 6 5" look-at="[camera]">
+                        <a-plane width="3" height="1.2" mixin="marker-bg" class="clickable"
+                            material="border: 2px solid #aaaaaa"></a-plane>
+                        <a-text value="🌫 AIR QUALITY\nAQI 142\n⚠ Unhealthy" align="center" position="0 0 0.01"
+                            scale="0.6 0.6 0.6" color="#aaaaaa"></a-text>
+                    </a-entity>
+                </a-entity>
+
+                <!-- NOISE LAYER -->
+                <a-entity id="layer-noise" visible="false">
+                    <a-entity class="clickable ar-marker" position="-8 2 -5" look-at="[camera]">
+                        <a-plane width="2.5" height="1.2" mixin="marker-bg" class="clickable"
+                            material="border: 2px solid #ffff00"></a-plane>
+                        <a-text value="🔊 NOISE\n72 dB (Traffic)" align="center" position="0 0 0.01" scale="0.6 0.6 0.6"
+                            color="#ffff00"></a-text>
+                    </a-entity>
+                </a-entity>
+
+                <!-- TRAFFIC LAYER -->
+                <a-entity id="layer-traffic" visible="false">
+                    <a-entity class="clickable ar-marker" position="10 3 -5" look-at="[camera]">
+                        <a-plane width="2.5" height="1.2" mixin="marker-bg" class="clickable"
+                            material="border: 2px solid #ff00ff"></a-plane>
+                        <a-text value="🚗 TRAFFIC\nHEAVY\n24 veh/min" align="center" position="0 0 0.01"
+                            scale="0.6 0.6 0.6" color="#ff00ff"></a-text>
+                    </a-entity>
+                </a-entity>
+
+                <!-- ENERGY LAYER -->
+                <a-entity id="layer-energy" visible="false">
+                    <a-entity class="clickable ar-marker" position="0 8 -15" look-at="[camera]">
+                        <a-plane width="3" height="1.2" mixin="marker-bg" class="clickable"
+                            material="border: 2px solid #00ffff"></a-plane>
+                        <a-text value="⚡ ENERGY\nGRID LOAD: HIGH\n4.2 MW Usage" align="center" position="0 0 0.01"
+                            scale="0.6 0.6 0.6" color="#00ffff"></a-text>
+                    </a-entity>
+                </a-entity>
+
+            </a-entity>
+
+            <!-- ================= FUTURE GROUP ================= -->
+            <a-entity id="group-future" visible="false"></a-entity>
+
+            <!-- ================= SKYLINE (Outer 360 Ring) ================= -->
+            <!-- Lightweight geometric ring to provide horizon context -->
+            <a-entity id="skyline" position="0 0 0"></a-entity>
+
+        </a-entity>
+    </a-scene>
+
+    <script>
+        AFRAME.registerComponent('look-at', {
+            schema: { type: 'selector' },
+            tick: function () {
+                if (this.data) {
+                    var target3D = this.data.object3D;
+                    this.el.object3D.lookAt(target3D.position);
+                }
+            }
+        });
+    </script>
+
+    <!-- PROCEDURAL GENERATION ENGINE -->
+    <script>
+        const buildEngine = {
+            // Enhanced to generate fully 3D buildings with details on all 4 sides
+            createRealisticBuilding: function (x, z, w, d, floors, style, rotY = 0) {
+                let html = `<a-entity position="${x} 0 ${z}" rotation="0 ${rotY} 0">`;
+                const floorHeight = 3.5;
+                const totalH = floors * floorHeight;
+
+                let mat = style === 'old' ? 'mat-brick' : (style === 'future' ? 'mat-future-concrete' : 'mat-concrete');
+                if (style === 'modern' && Math.random() > 0.5) mat = 'mat-concrete-dark';
+
+                // Main Core Structure
+                html += `<a-box position="0 ${totalH / 2} 0" width="${w}" height="${totalH}" depth="${d}" mixin="${mat}" shadow="cast:true; receive:true"></a-box>`;
+
+                // Windows (All 4 faces)
+                const winW = 1.6;
+                const winH = 2.2;
+
+                for (let f = 1; f < floors; f++) {
+                    const y = f * floorHeight + 1.2;
+
+                    // Front (+Z) and Back (-Z)
+                    const colsZ = Math.floor(w / 2.5);
+                    for (let c = 0; c < colsZ; c++) {
+                        const px = -w / 2 + (c + 1) * (w / (colsZ + 1));
+                        // Front
+                        html += `<a-plane position="${px} ${y} ${d / 2 + 0.01}" width="${winW}" height="${winH}" mixin="mat-glass"></a-plane>`;
+                        html += `<a-box position="${px} ${y} ${d / 2 + 0.02}" width="${winW + 0.1}" height="${winH + 0.1}" depth="0.05" mixin="mat-frame"></a-box>`;
+                        // Back
+                        html += `<a-plane position="${px} ${y} ${-d / 2 - 0.01}" rotation="0 180 0" width="${winW}" height="${winH}" mixin="mat-glass"></a-plane>`;
+                        html += `<a-box position="${px} ${y} ${-d / 2 - 0.02}" width="${winW + 0.1}" height="${winH + 0.1}" depth="0.05" mixin="mat-frame"></a-box>`;
+                    }
+
+                    // Left (-X) and Right (+X)
+                    const colsX = Math.floor(d / 2.5);
+                    for (let c = 0; c < colsX; c++) {
+                        const pz = -d / 2 + (c + 1) * (d / (colsX + 1));
+                        // Right
+                        html += `<a-plane position="${w / 2 + 0.01} ${y} ${pz}" rotation="0 90 0" width="${winW}" height="${winH}" mixin="mat-glass"></a-plane>`;
+                        html += `<a-box position="${w / 2 + 0.02} ${y} ${pz}" rotation="0 90 0" width="${winW + 0.1}" height="${winH + 0.1}" depth="0.05" mixin="mat-frame"></a-box>`;
+                        // Left
+                        html += `<a-plane position="${-w / 2 - 0.01} ${y} ${pz}" rotation="0 -90 0" width="${winW}" height="${winH}" mixin="mat-glass"></a-plane>`;
+                        html += `<a-box position="${-w / 2 - 0.02} ${y} ${pz}" rotation="0 -90 0" width="${winW + 0.1}" height="${winH + 0.1}" depth="0.05" mixin="mat-frame"></a-box>`;
+                    }
+                }
+
+                // Entrance (Ground level, front center)
+                html += `<a-box position="0 1.5 ${d / 2 + 0.02}" width="3" height="3" depth="0.1" mixin="mat-glass"></a-box>`;
+                html += `<a-box position="0 1.5 ${d / 2 + 0.03}" width="3.2" height="3.2" depth="0.15" mixin="mat-frame" shadow="cast:true"></a-box>`;
+
+                // Roof details (Parapet trim + AC unit)
+                html += `<a-box position="0 ${totalH + 0.3} 0" width="${w + 0.2}" height="0.6" depth="${d + 0.2}" mixin="mat-roof-trim" shadow="cast:true"></a-box>`;
+                if (style !== 'old') {
+                    html += `<a-box position="${w / 4} ${totalH + 0.6} ${-d / 4}" width="1.5" height="1.2" depth="1.5" mixin="mat-ac" shadow="cast:true; receive:true"></a-box>`;
+                    html += `<a-box position="${-w / 4} ${totalH + 0.6} ${d / 4}" width="1.0" height="0.8" depth="1.0" mixin="mat-ac" shadow="cast:true; receive:true"></a-box>`;
+                }
+
+                html += `</a-entity>`;
+                return html;
+            },
+
+            createRealisticTree: function (x, z, style) {
+                let html = `<a-entity position="${x} 0 ${z}">`;
+                const h = style === 'old' ? 3 : (style === 'future' ? 4.5 : 3.8);
+                const crown = style === 'old' ? 1.5 : (style === 'future' ? 2.2 : 1.8);
+                const matL = style === 'old' ? 'mat-leaves-old' : 'mat-leaves';
+
+                // Trunk
+                html += `<a-cylinder position="0 ${h / 2} 0" radius="0.15" height="${h}" mixin="mat-wood" shadow="cast:true; receive:true"></a-cylinder>`;
+                // Crown cluster (multiple spheres for organic look from all 360 angles)
+                html += `<a-sphere position="0 ${h} 0" radius="${crown}" mixin="${matL}" shadow="cast:true; receive:true"></a-sphere>`;
+                html += `<a-sphere position="0.5 ${h - 0.5} 0.5" radius="${crown * 0.8}" mixin="${matL}" shadow="cast:true"></a-sphere>`;
+                html += `<a-sphere position="-0.5 ${h - 0.2} -0.5" radius="${crown * 0.9}" mixin="${matL}" shadow="cast:true"></a-sphere>`;
+                html += `<a-sphere position="-0.4 ${h - 0.4} 0.6" radius="${crown * 0.7}" mixin="${matL}" shadow="cast:true"></a-sphere>`;
+
+                html += `</a-entity>`;
+                return html;
+            },
+
+            createRealisticVehicle: function (x, z, style, rotY = 0) {
+                let html = `<a-entity position="${x} 0 ${z}" rotation="0 ${rotY} 0">`;
+                if (style === '1900') {
+                    // Wooden cart
+                    html += `<a-box position="0 0.8 0" width="1.6" height="0.8" depth="2.8" mixin="mat-wood" shadow="cast:true; receive:true"></a-box>`;
+                    html += `<a-cylinder position="-0.9 0.5 -0.8" rotation="0 0 90" radius="0.5" height="0.1" mixin="mat-wood" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="0.9 0.5 -0.8" rotation="0 0 90" radius="0.5" height="0.1" mixin="mat-wood" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="-0.9 0.5 0.8" rotation="0 0 90" radius="0.5" height="0.1" mixin="mat-wood" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="0.9 0.5 0.8" rotation="0 0 90" radius="0.5" height="0.1" mixin="mat-wood" shadow="cast:true"></a-cylinder>`;
+                } else if (style === '1950') {
+                    // Classic car
+                    html += `<a-box position="0 0.6 0" width="1.8" height="0.6" depth="4.2" mixin="mat-car-old" shadow="cast:true; receive:true"></a-box>`;
+                    html += `<a-box position="0 1.3 -0.2" width="1.6" height="0.8" depth="2.0" mixin="mat-car-old" shadow="cast:true"></a-box>`;
+                    html += `<a-cylinder position="-0.9 0.4 -1.2" rotation="0 0 90" radius="0.4" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="0.9 0.4 -1.2" rotation="0 0 90" radius="0.4" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="-0.9 0.4 1.2" rotation="0 0 90" radius="0.4" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="0.9 0.4 1.2" rotation="0 0 90" radius="0.4" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                } else {
+                    // Modern car
+                    html += `<a-box position="0 0.5 0" width="1.8" height="0.5" depth="4" mixin="mat-car-mod" shadow="cast:true; receive:true"></a-box>`;
+                    html += `<a-box position="0 1.1 0" width="1.6" height="0.7" depth="2.2" mixin="mat-car-mod" shadow="cast:true"></a-box>`;
+                    html += `<a-plane position="0 1.1 1.11" width="1.4" height="0.6" mixin="mat-glass"></a-plane>`;
+                    html += `<a-plane position="0 1.1 -1.11" rotation="0 180 0" width="1.4" height="0.6" mixin="mat-glass"></a-plane>`;
+                    html += `<a-cylinder position="-0.9 0.35 -1.2" rotation="0 0 90" radius="0.35" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="0.9 0.35 -1.2" rotation="0 0 90" radius="0.35" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="-0.9 0.35 1.2" rotation="0 0 90" radius="0.35" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                    html += `<a-cylinder position="0.9 0.35 1.2" rotation="0 0 90" radius="0.35" height="0.2" mixin="mat-tire" shadow="cast:true"></a-cylinder>`;
+                }
+                html += `</a-entity>`;
+                return html;
+            }
+        };
+    </script>
+
+    <!-- APPLICATION LOGIC -->
+    <script>
+        const app = {
+            state: {
+                mode: 'INTRO',
+                yearIndex: 4,
+                years: [1900, 1950, 1980, 2000, 2026],
+                simParams: {
+                    greenery: 50,
+                    build: 50,
+                    transit: 50,
+                    traffic: 50,
+                    energy: 50
+                },
+                lastScenario: null
+            },
+
+            els: {
+                introScreen: document.getElementById('intro-screen'),
+                mainUI: document.getElementById('main-ui'),
+                scenarioResults: document.getElementById('scenario-results'),
+                vrEntryMsg: document.getElementById('vr-entry-message'),
+
+                panelPast: document.getElementById('panel-past'),
+                panelPresent: document.getElementById('panel-present'),
+                panelFuture: document.getElementById('panel-future'),
+
+                groupPast: document.getElementById('group-past'),
+                groupPresent: document.getElementById('group-present'),
+                groupAR: document.getElementById('group-ar-layer'),
+                groupFuture: document.getElementById('group-future'),
+
+                envSky: document.getElementById('env-sky'),
+                dirLight: document.getElementById('dir-light')
+            },
+
+            init: function () {
+                console.log("TIME-SHADOW XR Initialized - 360 Digital Twin Mode");
+                this.generateSkyline(); // Generates outer horizon
+                this.generatePresentAssets(); // Base layer for modern/present
+                this.generatePastAssets();
+            },
+
+            startExperience: function () {
+                this.els.introScreen.style.opacity = '0';
+                setTimeout(() => {
+                    this.els.introScreen.style.display = 'none';
+                    this.els.mainUI.style.display = 'flex';
+                    this.setMode('PRESENT');
+                }, 500);
+            },
+
+            setMode: function (mode) {
+                this.state.mode = mode;
+
+                // Reset UI Buttons
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+
+                // Hide all panels
+                this.els.panelPast.classList.remove('active');
+                this.els.panelPresent.classList.remove('active');
+                this.els.panelFuture.classList.remove('active');
+                this.els.vrEntryMsg.style.display = 'none';
+                this.els.mainUI.style.display = 'flex';
+                this.els.scenarioResults.style.display = 'none';
+
+                // Hide all 3D groups
+                this.els.groupPast.setAttribute('visible', 'false');
+                this.els.groupPresent.setAttribute('visible', 'false');
+                this.els.groupFuture.setAttribute('visible', 'false');
+                this.els.groupAR.setAttribute('visible', 'false');
+
+                // Standard realistic lighting
+                this.els.envSky.setAttribute('environment', 'preset: default; skyType: atmosphere; lighting: none;');
+                this.els.dirLight.setAttribute('light', 'color: #fff5e6; intensity: 1.0;');
+
+                if (mode === 'PAST') {
+                    document.getElementById('btn-past').classList.add('active');
+                    this.els.panelPast.classList.add('active');
+                    this.els.groupPast.setAttribute('visible', 'true');
+                    this.changeYear(this.state.yearIndex);
+
+                } else if (mode === 'PRESENT') {
+                    document.getElementById('btn-present').classList.add('active');
+                    this.els.panelPresent.classList.add('active');
+                    this.els.groupPresent.setAttribute('visible', 'true');
+                    this.els.groupAR.setAttribute('visible', 'true'); // Show selected data layers
+
+                } else if (mode === 'FUTURE') {
+                    document.getElementById('btn-future').classList.add('active');
+                    this.els.panelFuture.classList.add('active');
+                    // Show present as baseline until simulation runs
+                    this.els.groupPresent.setAttribute('visible', 'true');
+
+                } else if (mode === 'VR_FUTURE') {
+                    // Hide 2D UI for VR immersion (except entry msg as fallback)
+                    this.els.mainUI.style.display = 'none';
+                    this.els.vrEntryMsg.style.display = 'block';
+                    this.els.groupFuture.setAttribute('visible', 'true');
+                }
+            },
+
+            // --- DATA LAYERS (PRESENT MODE) ---
+            toggleLayer: function (layerId, isVisible) {
+                const layerEl = document.getElementById(`layer-${layerId}`);
+                if (layerEl) {
+                    layerEl.setAttribute('visible', isVisible);
+                }
+            },
+
+            // --- PAST LOGIC ---
+            changeYear: function (index) {
+                this.state.yearIndex = parseInt(index);
+                const year = this.state.years[this.state.yearIndex];
+
+                // Update UI timeline
+                document.querySelectorAll('.timeline-years span').forEach(el => el.classList.remove('active-year'));
+                document.getElementById(`year-${year}`).classList.add('active-year');
+
+                // Toggle visible layers
+                const pastGroups = this.els.groupPast.querySelectorAll('.year-layer');
+                pastGroups.forEach(g => g.setAttribute('visible', 'false'));
+
+                const selectedGroup = document.getElementById(`past-layer-${year}`);
+                if (selectedGroup) selectedGroup.setAttribute('visible', 'true');
+
+                // Adjust environment aesthetic
+                if (year < 1950) {
+                    // Slightly sepia/dusty light for history
+                    this.els.dirLight.setAttribute('light', 'color: #ffaa66; intensity: 0.8;');
+                } else {
+                    this.els.dirLight.setAttribute('light', 'color: #fff5e6; intensity: 1.0;');
+                }
+            },
+
+            // --- SKYLINE (360 Horizon) ---
+            generateSkyline: function () {
+                const group = document.getElementById('skyline');
+                let html = '';
+                // Create a distant ring of simple boxes to simulate a city skyline
+                for (let i = 0; i < 24; i++) {
+                    const angle = (i / 24) * Math.PI * 2;
+                    const r = 60; // Distance
+                    const sx = Math.cos(angle) * r;
+                    const sz = Math.sin(angle) * r;
+                    // Skip front area slightly to not block the main view excessively
+                    if (sz > 20 || sz < -20 || sx > 30 || sx < -30) {
+                        const width = 10 + Math.random() * 10;
+                        const height = 15 + Math.random() * 30;
+                        const depth = 10 + Math.random() * 10;
+                        html += `<a-box position="${sx} ${height / 2} ${sz}" width="${width}" height="${height}" depth="${depth}" mixin="mat-concrete-dark"></a-box>`;
+                    }
+                }
+                group.innerHTML = html;
+            },
+
+            // --- 360 CITY BLOCK GENERATION ---
+            generatePresentAssets: function () {
+                const group = this.els.groupPresent;
+                let html = '';
+
+                // CENTER: Main Building Block (Detailed on all 4 sides)
+                html += buildEngine.createRealisticBuilding(0, -15, 12, 10, 6, 'modern', 0); // Main Hq
+
+                // SIDES: Surrounding buildings for 360 immersion
+                html += buildEngine.createRealisticBuilding(-30, -15, 10, 10, 4, 'modern', 0); // Building B (Left)
+                html += buildEngine.createRealisticBuilding(30, -15, 12, 10, 8, 'modern', 0);  // Building C (Right)
+
+                // BACK: Buildings behind the main road
+                html += buildEngine.createRealisticBuilding(0, -35, 15, 8, 5, 'modern', 0);   // Building D (Back)
+                html += buildEngine.createRealisticBuilding(-20, -35, 10, 8, 3, 'modern', 0);
+                html += buildEngine.createRealisticBuilding(20, -35, 10, 8, 7, 'modern', 0);
+
+                // FRONT: Park across the main street (z: 5)
+                html += buildEngine.createRealisticTree(0, 5, 'modern');
+                html += buildEngine.createRealisticTree(-6, 3, 'modern');
+                html += buildEngine.createRealisticTree(8, 7, 'modern');
+                html += buildEngine.createRealisticTree(-10, 8, 'modern');
+                html += buildEngine.createRealisticTree(12, 4, 'modern');
+
+                // Street Trees around Main Block
+                html += buildEngine.createRealisticTree(-12, -9, 'modern');
+                html += buildEngine.createRealisticTree(12, -9, 'modern');
+                html += buildEngine.createRealisticTree(-12, -21, 'modern');
+                html += buildEngine.createRealisticTree(12, -21, 'modern');
+
+                // Modern Vehicles (Scattered in 360)
+                html += buildEngine.createRealisticVehicle(-5, -5, 'modern', 0); // Front Road
+                html += buildEngine.createRealisticVehicle(8, -4, 'modern', 0);
+                html += buildEngine.createRealisticVehicle(-20, -15, 'modern', 90); // Left Road
+                html += buildEngine.createRealisticVehicle(20, -10, 'modern', -90); // Right Road
+                html += buildEngine.createRealisticVehicle(0, -25, 'modern', 180); // Back Road
+
+                group.innerHTML = html;
+            },
+
+            generatePastAssets: function () {
+                const group = this.els.groupPast;
+
+                // 1900 Layer (Entire 360 block represented in 1900 style)
+                let layer1900 = document.createElement('a-entity');
+                layer1900.id = 'past-layer-1900';
+                layer1900.className = 'year-layer';
+                layer1900.setAttribute('visible', 'false');
+
+                let h1900 = '';
+                h1900 += buildEngine.createRealisticBuilding(0, -15, 10, 8, 2, 'old');
+                h1900 += buildEngine.createRealisticBuilding(-25, -15, 8, 8, 2, 'old');
+                h1900 += buildEngine.createRealisticBuilding(25, -15, 10, 8, 3, 'old');
+                h1900 += buildEngine.createRealisticBuilding(0, -35, 12, 8, 2, 'old');
+
+                h1900 += buildEngine.createRealisticTree(-6, 3, 'old');
+                h1900 += buildEngine.createRealisticTree(8, 7, 'old');
+
+                h1900 += buildEngine.createRealisticVehicle(-2, -5, '1900', 0); // Cart on front road
+                h1900 += buildEngine.createRealisticVehicle(-20, -15, '1900', 90); // Cart on left road
+                layer1900.innerHTML = h1900;
+                group.appendChild(layer1900);
+
+                // 1950 Layer
+                let layer1950 = document.createElement('a-entity');
+                layer1950.id = 'past-layer-1950';
+                layer1950.className = 'year-layer';
+                layer1950.setAttribute('visible', 'false');
+
+                let h1950 = '';
+                h1950 += buildEngine.createRealisticBuilding(0, -15, 12, 10, 4, 'old');
+                h1950 += buildEngine.createRealisticBuilding(-30, -15, 10, 10, 3, 'old');
+                h1950 += buildEngine.createRealisticBuilding(30, -15, 12, 10, 5, 'old');
+                h1950 += buildEngine.createRealisticBuilding(0, -35, 15, 8, 4, 'old');
+
+                h1950 += buildEngine.createRealisticTree(0, 5, 'modern');
+                h1950 += buildEngine.createRealisticTree(-6, 3, 'modern');
+
+                h1950 += buildEngine.createRealisticVehicle(-4, -5, '1950', 0);
+                h1950 += buildEngine.createRealisticVehicle(6, -4, '1950', 0);
+                h1950 += buildEngine.createRealisticVehicle(20, -10, '1950', -90);
+                layer1950.innerHTML = h1950;
+                group.appendChild(layer1950);
+
+                // 1980 Layer
+                let layer1980 = document.createElement('a-entity');
+                layer1980.id = 'past-layer-1980';
+                layer1980.className = 'year-layer';
+                layer1980.setAttribute('visible', 'false');
+
+                let h1980 = '';
+                h1980 += buildEngine.createRealisticBuilding(0, -15, 12, 10, 5, 'modern'); // Main gets modernized
+                h1980 += buildEngine.createRealisticBuilding(-30, -15, 10, 10, 4, 'old');
+                h1980 += buildEngine.createRealisticBuilding(30, -15, 12, 10, 6, 'modern');
+                h1980 += buildEngine.createRealisticBuilding(0, -35, 15, 8, 5, 'modern');
+
+                h1980 += buildEngine.createRealisticTree(0, 5, 'modern');
+                h1980 += buildEngine.createRealisticTree(-6, 3, 'modern');
+                h1980 += buildEngine.createRealisticTree(12, 4, 'modern');
+
+                h1980 += buildEngine.createRealisticVehicle(-5, -5, '1950', 0); // Mix of cars
+                h1980 += buildEngine.createRealisticVehicle(8, -4, 'modern', 0);
+                h1980 += buildEngine.createRealisticVehicle(-20, -15, 'modern', 90);
+                layer1980.innerHTML = h1980;
+                group.appendChild(layer1980);
+
+                // 2000 & 2026 Layers (Structurally same as present)
+                let layer2000 = document.createElement('a-entity');
+                layer2000.id = 'past-layer-2000';
+                layer2000.className = 'year-layer';
+                layer2000.setAttribute('visible', 'false');
+                layer2000.innerHTML = document.getElementById('group-present').innerHTML;
+                group.appendChild(layer2000);
+
+                let layer2026 = document.createElement('a-entity');
+                layer2026.id = 'past-layer-2026';
+                layer2026.className = 'year-layer';
+                layer2026.setAttribute('visible', 'false');
+                layer2026.innerHTML = document.getElementById('group-present').innerHTML;
+                group.appendChild(layer2026);
+            },
+
+            // --- FUTURE LOGIC ---
+            updateSimValue: function (param, value) {
+                this.state.simParams[param] = parseInt(value);
+                document.getElementById(`val-${param}`).innerText = value + '%';
+            },
+
+            runSimulation: function () {
+                const p = this.state.simParams;
+
+                // Deterministic Logic Engine
+                let scenarioName = "BALANCED FUTURE";
+                let tempChange = -0.1;
+                let aqi = 60;
+                let co2 = -5;
+                let score = 60;
+
+                if (p.greenery > 70 && p.energy > 70 && p.traffic < 40) {
+                    scenarioName = "RESILIENT GREEN CITY";
+                    tempChange = -1.5;
+                    aqi = 25;
+                    co2 = -45;
+                    score = 95;
+                } else if (p.traffic > 70 || (p.build > 70 && p.greenery < 30)) {
+                    scenarioName = "URBAN GROWTH (HIGH EMISSIONS)";
+                    tempChange = +2.1;
+                    aqi = 150;
+                    co2 = +30;
+                    score = 35;
+                } else if (p.transit > 70 && p.build > 60) {
+                    scenarioName = "DENSE TRANSIT HUB";
+                    tempChange = +0.5;
+                    aqi = 50;
+                    co2 = -15;
+                    score = 75;
+                }
+
+                // Update Results Modal UI
+                document.getElementById('scenario-name').innerText = `"${scenarioName}"`;
+                document.getElementById('res-temp').innerText = (tempChange > 0 ? "+" : "") + tempChange + "°C";
+                document.getElementById('res-aqi').innerText = aqi < 50 ? `Good (${aqi})` : aqi < 100 ? `Moderate (${aqi})` : `Poor (${aqi})`;
+                document.getElementById('res-co2').innerText = (co2 > 0 ? "+" : "") + co2 + "%";
+                document.getElementById('res-score').innerText = score + "/100";
+
+                const scoreEl = document.getElementById('res-score');
+                if (score > 75) scoreEl.style.color = "var(--success)";
+                else if (score > 50) scoreEl.style.color = "#ffa500";
+                else scoreEl.style.color = "var(--danger)";
+
+                this.state.lastScenario = { name: scenarioName, params: p, score: score };
+
+                // Pre-generate 3D Future before entering
+                this.generateFutureEnvironment(p, score);
+
+                // Show Results Modal
+                this.els.scenarioResults.style.display = 'block';
+            },
+
+            closeScenario: function () {
+                this.els.scenarioResults.style.display = 'none';
+            },
+
+            generateFutureEnvironment: function (p, score) {
+                const group = this.els.groupFuture;
+                let html = '';
+
+                // Core Construction (scales based on 'build' param across the entire 360 block)
+                let heightMult = p.build / 50;
+                html += buildEngine.createRealisticBuilding(0, -15, 12, 10, Math.max(3, Math.floor(6 * heightMult)), 'future', 0);
+                html += buildEngine.createRealisticBuilding(-30, -15, 10, 10, Math.max(2, Math.floor(4 * heightMult)), 'future', 0);
+                html += buildEngine.createRealisticBuilding(30, -15, 12, 10, Math.max(4, Math.floor(8 * heightMult)), 'future', 0);
+                html += buildEngine.createRealisticBuilding(0, -35, 15, 8, Math.max(2, Math.floor(5 * heightMult)), 'future', 0);
+
+                // Greenery Injection (Affects parks and roofs)
+                if (p.greenery > 50) {
+                    // Huge Park
+                    html += buildEngine.createRealisticTree(0, 5, 'future');
+                    html += buildEngine.createRealisticTree(-6, 3, 'future');
+                    html += buildEngine.createRealisticTree(8, 7, 'future');
+                    html += buildEngine.createRealisticTree(-10, 8, 'future');
+                    html += buildEngine.createRealisticTree(12, 4, 'future');
+                    html += buildEngine.createRealisticTree(4, 2, 'future');
+                    html += buildEngine.createRealisticTree(-4, 6, 'future');
+
+                    // Street Trees
+                    html += buildEngine.createRealisticTree(-12, -9, 'future');
+                    html += buildEngine.createRealisticTree(12, -9, 'future');
+                    html += buildEngine.createRealisticTree(-12, -21, 'future');
+                    html += buildEngine.createRealisticTree(12, -21, 'future');
+
+                    // Green Roof proxies
+                    let rH1 = Math.max(3, Math.floor(6 * heightMult)) * 3.5;
+                    let rH2 = Math.max(4, Math.floor(8 * heightMult)) * 3.5;
+                    html += `<a-plane position="0 ${rH1 + 0.35} -15" rotation="-90 0 0" width="10" height="8" mixin="mat-grass"></a-plane>`;
+                    html += `<a-plane position="30 ${rH2 + 0.35} -15" rotation="-90 0 0" width="10" height="8" mixin="mat-grass"></a-plane>`;
+                } else {
+                    // Minimal trees
+                    html += buildEngine.createRealisticTree(0, 5, 'modern');
+                }
+
+                // Energy Infrastructure
+                if (p.energy > 50) {
+                    // Solar panels on roofs
+                    let rH1 = Math.max(3, Math.floor(6 * heightMult)) * 3.5;
+                    let rH3 = Math.max(2, Math.floor(5 * heightMult)) * 3.5;
+                    html += `<a-plane position="0 ${rH1 + 1.0} -15" rotation="-70 0 0" width="8" height="6" material="color: #031424; roughness: 0.1; metalness: 0.9;" shadow="cast:true"></a-plane>`;
+                    html += `<a-plane position="0 ${rH3 + 1.0} -35" rotation="-70 0 0" width="12" height="4" material="color: #031424; roughness: 0.1; metalness: 0.9;" shadow="cast:true"></a-plane>`;
+                }
+
+                // Transport/Traffic
+                if (p.transit > 60) {
+                    // Futuristic Tram Route on Main Street
+                    html += `
+                        <a-entity position="0 1 -5">
+                            <a-box position="0 0 0" width="4" height="2.5" depth="14" material="color: #e0e5ef; metalness:0.4; roughness:0.5" shadow="cast:true"></a-box>
+                            <a-box position="0 0.2 0" width="4.1" height="0.8" depth="13" material="color: #1a2a3a; metalness:0.9; roughness:0.1"></a-box>
+                            <a-box position="0 -1.1 0" width="4.1" height="0.2" depth="14.1" material="color: #00ffff; emissive:#00ffff; emissiveIntensity:0.5"></a-box>
+                        </a-entity>
+                    `;
+                } else if (p.traffic > 50) {
+                    // High congestion across 360 block
+                    html += buildEngine.createRealisticVehicle(-5, -5, 'modern', 0);
+                    html += buildEngine.createRealisticVehicle(-10, -5, 'modern', 0);
+                    html += buildEngine.createRealisticVehicle(8, -4, 'modern', 0);
+                    html += buildEngine.createRealisticVehicle(15, -4, 'modern', 0);
+                    html += buildEngine.createRealisticVehicle(-20, -10, 'modern', 90);
+                    html += buildEngine.createRealisticVehicle(-20, -18, 'modern', 90);
+                    html += buildEngine.createRealisticVehicle(20, -12, 'modern', -90);
+                }
+
+                // Holographic Scenario Label (Spatial UI in Future)
+                html += `
+                    <a-entity position="0 15 -20" look-at="[camera]">
+                        <a-plane width="18" height="4.5" mixin="marker-bg" material="border: 4px solid ${score > 70 ? '#00ff88' : '#ff4444'}"></a-plane>
+                        <a-text value="${this.state.lastScenario.name}" align="center" position="0 0.8 0.1" width="20" color="#fff"></a-text>
+                        <a-text value="Sustainability: ${score}/100" align="center" position="0 -0.8 0.1" width="12" color="${score > 70 ? '#00ff88' : '#ff4444'}"></a-text>
+                    </a-entity>
+                `;
+
+                group.innerHTML = html;
+            },
+
+            enterVRFuture: function () {
+                this.setMode('VR_FUTURE');
+            },
+
+            exitFuture: function () {
+                this.setMode('FUTURE');
+            }
+        };
+
+        // Boot
+        window.onload = () => {
+            app.init();
+        };
+    </script>
+</body>
+
+</html>
